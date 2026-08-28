@@ -1,0 +1,31 @@
+# Data Science
+pandas
+openpyxl
+numpy
+scikit-learn
+matplotlib
+seaborn
+shap
+
+# Deep Learning (PyTorch)
+torch
+torchvision
+tensorboard
+Pillow
+
+# Tracking
+mlflow
+
+# API
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# Utils
+python-dotenv
+joblib
+cachetools
+jupyter
+pytest
+httpx

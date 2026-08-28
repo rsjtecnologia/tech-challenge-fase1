@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest httpx
+    
+    - name: Train tabular models (dummy)
+      run: |
+        python -c "
+import os, joblib
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.preprocessing import StandardScaler
+np.random.seed(42)
+X = np.random.randn(569, 30)
+y = (X[:, 0] + X[:, 1] + np.random.randn(569) * 0.5 > 0).astype(int)
+os.makedirs('models/tabular', exist_ok=True)
+scaler = StandardScaler().fit(X)
+for name, model in [('logistic_regression', LogisticRegression(max_iter=1000)), ('random_forest', RandomForestClassifier(n_estimators=100)), ('gradient_boosting', GradientBoostingClassifier(n_estimators=100))]:
+    model.fit(scaler.transform(X), y)
+    joblib.dump(model, f'models/tabular/{name}.joblib')
+joblib.dump(scaler, 'models/tabular/scaler.joblib')
+joblib.dump([f'feature_{i}' for i in range(30)], 'models/tabular/feature_names.joblib')
+print('Tabular models trained')
+"
+        python -c "from src.diabetes.train import train_diabetes_models; train_diabetes_models()"
+        python -c "from src.cancer.train import train_cancer_models; train_cancer_models()"
+        python -c "from src.pcos.train import train_pcos_models; train_pcos_models()"
+    
+    - name: Run tests
+      env:
+        MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+      run: |
+        python -m pytest tests/ -v --tb=short

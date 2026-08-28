@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health AI - Tech Challenge</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
+    .tab-btn { transition: all 0.2s ease; }
+    .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .spinner { animation: spin 1s linear infinite; border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; width: 20px; height: 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in { animation: fadeUp 0.4s ease-out; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .panel.hidden { display: none; }
+    .result-icon { width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; }
+    .result-table th { position: sticky; top: 0; z-index: 1; }
+    .diagnosis-badge { font-size: 2.5rem; font-weight: 900; padding: 1.5rem 2rem; border-radius: 1.25rem; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.12); }
+    .diagnosis-malignant { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #7f1d1d; border: 2px solid #dc2626; }
+    .diagnosis-benign { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #15803d; border: 2px solid #16a34a; }
+    .diagnosis-positive { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #7f1d1d; border: 2px solid #dc2626; }
+    .diagnosis-negative { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #15803d; border: 2px solid #16a34a; }
+    .dashboard-chart { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 1.25rem; padding: 1.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+    .metric-card-large { font-size: 1.875rem; font-weight: 900; line-height: 1; letter-spacing: -0.05em; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 min-h-screen">
+  <header class="glass border-b border-indigo-100 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">HA</div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-800">Health AI</h1>
+          <p class="text-xs text-slate-500">Tech Challenge Fase 1</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span id="statusBadge" class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium flex items-center gap-1">
+          <span class="w-2 h-2 bg-yellow-500 rounded-full"></span> Verificando...
+        </span>
+        <a href="/docs" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Swagger →</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <div class="text-center mb-10">
+      <h2 class="text-4xl font-extrabold text-slate-800 mb-3">Sistema de IA para Saúde Feminina</h2>
+      <p class="text-lg text-slate-600 max-w-2xl mx-auto">Painéis interativos com resultados em tabela, gráfico e explicabilidade para cada endpoint.</p>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button type="button" onclick="showPanel('panel-cancer')" class="tab-btn px-4 py-2 rounded-full text-sm font-medium bg-indigo-600 text-white shadow">🩺 Câncer de Mama</button>
+      <button type="button" onclick="showPanel('panel-mammo')" class="tab-btn px-4 py-2 rounded-full text-sm font-medium bg-white text-slate-600 border border-slate-200">🖼️ Mamografia</button>
+      <button type="button" onclick="showPanel('panel-diabetes')" class="tab-btn px-4 py-2 rounded-full text-sm font-medium bg-white text-slate-600 border border-slate-200">💉 Diabetes</button>
+      <button type="button" onclick="showPanel('panel-pcos')" class="tab-btn px-4 py-2 rounded-full text-sm font-medium bg-white text-slate-600 border border-slate-200">🌸 SOP</button>
+      <button type="button" onclick="showPanel('panel-cache')" class="tab-btn px-4 py-2 rounded-full text-sm font-medium bg-white text-slate-600 border border-slate-200">⚙️ Cache</button>
+    </div>
+
+    <div id="panel-cancer" class="panel grid grid-cols-1 gap-6 mb-8">
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-rose-100 text-rose-700">🩺</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Câncer de Mama</h3>
+            <p class="text-xs text-slate-500">30 features → predição tabular</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <select id="tabularModel" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="random_forest">Random Forest</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="svm">SVM</option>
+            <option value="knn">KNN</option>
+            <option value="legacy_logistic_regression">Modelo legado</option>
+          </select>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Amostra real do CSV</p>
+                <p id="cancerSampleInfo" class="text-sm font-medium text-slate-700">Carregando dados da base...</p>
+                <p id="cancerSampleSource" class="text-xs text-slate-500"></p>
+              </div>
+              <select id="cancerSampleKind" class="w-full lg:w-52 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" onchange="applyCancerSampleSelection(this.value)">
+                <option value="benign">Amostra benigna</option>
+                <option value="malignant">Amostra maligna</option>
+              </select>
+            </div>
+            <div id="cancerSamplePreview" class="mt-4"></div>
+          </div>
+          <button type="button" onclick="predictTabular(this)" class="w-full bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-rose-600 hover:to-pink-600 transition shadow-lg shadow-rose-200">Classificar</button>
+          <button type="button" onclick="compareModelsTabular()" class="w-full border border-rose-200 text-rose-600 hover:bg-rose-50 py-2 rounded-lg font-medium text-sm transition">Comparar Modelos</button>
+        </div>
+        <div id="tabularResult" class="mt-3 text-sm"></div>
+      </div>
+
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-purple-100 text-purple-700">📈</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Câncer + Gráficos</h3>
+            <p class="text-xs text-slate-500">SHAP → tabela → métricas</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <select id="cancerModel" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="random_forest">Random Forest</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="svm">SVM</option>
+            <option value="knn">KNN</option>
+          </select>
+          <div class="flex gap-2">
+            <button type="button" onclick="predictCancer(this)" class="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-purple-600 hover:to-violet-600 transition shadow-lg shadow-purple-200">Classificar</button>
+            <button type="button" onclick="loadCancerEDA(this)" class="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-amber-600 hover:to-orange-600 transition shadow-lg shadow-amber-200">Ver EDA</button>
+          </div>
+          <button type="button" onclick="loadCancerMetrics(this)" class="w-full border border-purple-200 text-purple-600 hover:bg-purple-50 py-2 rounded-lg font-medium text-sm transition">Comparativo de modelos</button>
+        </div>
+        <div id="cancerResult" class="mt-3 text-sm"></div>
+      </div>
+    </div>
+
+    <div id="panel-mammo" class="panel hidden grid grid-cols-1 gap-6 mb-8">
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-blue-100 text-blue-700">🖼️</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Mamografia CNN</h3>
+            <p class="text-xs text-slate-500">Imagem → Grad-CAM</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <label class="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-indigo-400 transition bg-slate-50/50">
+            <input type="file" id="mammoFile" accept="image/png,image/jpeg" class="hidden" onchange="document.getElementById('mammoFileName').textContent=this.files[0]?this.files[0].name:'Selecionar imagem'">
+            <div class="text-center">
+              <p class="text-sm font-medium text-slate-600" id="mammoFileName">Clique para selecionar imagem</p>
+              <p class="text-xs text-slate-400 mt-1">PNG ou JPG</p>
+            </div>
+          </label>
+          <div class="flex gap-2">
+            <button type="button" onclick="predictMammo()" class="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-blue-600 hover:to-indigo-600 transition shadow-lg shadow-blue-200">Classificar</button>
+            <button type="button" onclick="predictMammoGradCAM()" class="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-purple-600 hover:to-violet-600 transition shadow-lg shadow-purple-200">Grad-CAM</button>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="loadMammoEDA(this)" class="flex-1 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition">Ver EDA</button>
+            <button type="button" onclick="loadMammoMetrics(this)" class="flex-1 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition">Métricas</button>
+          </div>
+          <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <label for="mammoSample" class="block text-xs font-semibold text-blue-900 mb-2">Imagem de teste do banco local</label>
+            <select id="mammoSample" onchange="showMammoSample(this.value)" class="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"></select>
+            <img id="mammoSamplePreview" class="hidden mt-3 max-h-64 mx-auto rounded-lg border border-blue-100" alt="Amostra local de mamografia">
+            <button type="button" onclick="predictLocalMammo(this)" class="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Classificar imagem local</button>
+          </div>
+        </div>
+        <div id="mammoResult" class="mt-3 text-sm"></div>
+      </div>
+
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-cyan-100 text-cyan-700">🖼️</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Galeria de Mamografias</h3>
+            <p class="text-xs text-slate-500">Imagens do dataset CBIS-DDSM (data/images/cbis-ddsm) — clique para classificar</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <select id="mammoGallerySplit" onchange="renderMammoGallery()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+            <option value="all">Todos os splits</option>
+            <option value="test" selected>Teste</option>
+            <option value="val">Validação</option>
+            <option value="train">Treino</option>
+          </select>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="mammoGalleryPage(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition">‹ Anterior</button>
+            <span id="mammoGalleryPageInfo" class="text-xs font-semibold text-slate-600 whitespace-nowrap">Página 1 de 1</span>
+            <button type="button" onclick="mammoGalleryPage(1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition">Próxima ›</button>
+          </div>
+        </div>
+        <div id="mammoGallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
+        <p class="text-xs text-slate-400 mt-4">5 por linha · 3 linhas por página (15 imagens). Clique em uma miniatura para classificá-la com a CNN.</p>
+      </div>
+    </div>
+
+    <div id="panel-diabetes" class="panel hidden grid grid-cols-1 gap-6 mb-8">
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-emerald-100 text-emerald-700">💉</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Diabetes</h3>
+            <p class="text-xs text-slate-500">8 features → risco de diabetes</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <button type="button" onclick="fillDiabetes()" class="text-xs text-indigo-600 hover:text-indigo-700 font-medium">+ Preencher exemplo</button>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="dPreg" placeholder="Gestações" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dGlic" placeholder="Glicose" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dPress" placeholder="Pressão" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dSkin" placeholder="Dobra cutânea" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dInsul" placeholder="Insulina" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dBmi" placeholder="IMC" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dPedig" placeholder="Pedigree" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <input id="dAge" placeholder="Idade" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <select id="diabetesModel" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="random_forest">Random Forest</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="svm">SVM</option>
+            <option value="knn">KNN</option>
+          </select>
+          <button type="button" onclick="predictDiabetes(this)" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-emerald-600 hover:to-teal-600 transition shadow-lg shadow-emerald-200">Predizer</button>
+        </div>
+        <div id="diabetesResult" class="mt-3 text-sm"></div>
+      </div>
+    </div>
+
+    <div id="panel-pcos" class="panel hidden grid grid-cols-1 gap-6 mb-8">
+      <div class="card-hover bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="result-icon bg-fuchsia-100 text-fuchsia-700">🌸</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Síndrome dos Ovários Policísticos</h3>
+            <p class="text-xs text-slate-500">41 medidas clínicas → classificação de SOP</p>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <select id="pcosModel" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="random_forest">Random Forest</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="svm">SVM</option>
+            <option value="knn">KNN</option>
+          </select>
+          <div class="rounded-xl bg-fuchsia-50 border border-fuchsia-100 p-4">
+            <label for="pcosSampleKind" class="block text-xs font-semibold text-fuchsia-900 mb-2">Amostra clínica real</label>
+            <select id="pcosSampleKind" onchange="selectPcosSample(this.value)" class="w-full px-3 py-2 border border-fuchsia-200 rounded-lg text-sm bg-white">
+              <option value="negative">Sem SOP</option>
+              <option value="positive">Com SOP</option>
+            </select>
+            <p id="pcosSampleInfo" class="mt-2 text-xs text-slate-600">Carregando amostras do dataset...</p>
+          </div>
+          <button type="button" onclick="predictPcos(this)" class="w-full bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white py-2.5 rounded-lg font-medium text-sm hover:from-fuchsia-600 hover:to-pink-600 transition shadow-lg shadow-fuchsia-200">Classificar risco de SOP</button>
+          <div class="flex gap-2">
+            <button type="button" onclick="loadPcosEda(this)" class="flex-1 border border-fuchsia-200 text-fuchsia-700 py-2 rounded-lg text-sm font-medium">Ver EDA</button>
+            <button type="button" onclick="loadPcosMetrics(this)" class="flex-1 border border-fuchsia-200 text-fuchsia-700 py-2 rounded-lg text-sm font-medium">Métricas</button>
+          </div>
+        </div>
+        <div id="pcosResult" class="mt-3 text-sm"></div>
+      </div>
+    </div>
+
+
+      <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8">
+      <h3 class="font-semibold text-slate-800 mb-3">Endpoints da API</h3>
+      <div class="grid md:grid-cols-2 gap-3 text-sm">
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-mono">GET</span><code class="text-slate-700">/health</code></div>
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono">POST</span><code class="text-slate-700">/predict/tabular/</code></div>
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono">POST</span><code class="text-slate-700">/predict/image/mammography</code></div>
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-mono">POST</span><code class="text-slate-700">/predict/image/mammography/gradcam</code></div>
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono">POST</span><code class="text-slate-700">/predict/diabetes/</code></div>
+        <div class="flex items-center gap-2"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-mono">GET</span><code class="text-slate-700">/predict/cancer/eda</code></div>
+        <div class="flex items-center gap-2"><a href="/docs" class="text-indigo-600 hover:underline font-medium">Swagger UI</a></div>
+        <div class="flex items-center gap-2"><a href="/openapi.json" class="text-indigo-600 hover:underline font-medium">OpenAPI JSON</a></div>
+      </div>
+    </div>
+
+    <div id="panel-cache" class="panel hidden">
+    <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100" id="cacheMonitor">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+        <div class="result-icon bg-amber-100 text-amber-700">⚙️</div>
+          <div>
+            <h3 class="font-semibold text-slate-800">Cache de Predições</h3>
+            <p class="text-xs text-slate-500">Monitoramento em tempo real</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="cacheLastUpdate" class="text-xs text-slate-400"></span>
+          <div class="flex gap-2">
+            <button type="button" onclick="loadCacheStats()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition flex items-center gap-1">Atualizar</button>
+            <button type="button" onclick="clearAllCaches(this)" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-medium transition">Limpar Tudo</button>
+          </div>
+        </div>
+      </div>
+      <div id="cacheGlobalStats" class="mb-5 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-slate-700">Hit Rate Global</span>
+          <span id="globalHitRateText" class="text-sm font-bold text-indigo-600">--%</span>
+        </div>
+        <div class="w-full bg-indigo-100 rounded-full h-2.5 mb-2 overflow-hidden">
+          <div id="globalHitRateBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full transition-all duration-500" style="width:0%"></div>
+        </div>
+        <div class="flex text-xs text-slate-500 gap-4">
+          <span>Total de entradas: <strong id="totalEntries">--</strong></span>
+          <span>Consultas: <strong id="totalRequests">--</strong></span>
+        </div>
+      </div>
+      <div id="cacheServices" class="grid grid-cols-1 gap-4">
+        <div class="cache-card p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-700">Câncer de Mama</span>
+            <span class="cache-size text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 entradas</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-1.5 mb-2 overflow-hidden">
+            <div class="cache-bar bg-rose-500 h-1.5 rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-500 mb-2">
+            <span>Cache TTL: <strong class="cache-ttl">--</strong></span>
+            <span>Max: <strong class="cache-maxsize">--</strong></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex gap-3 text-xs">
+              <span class="text-green-600">Hits: <strong class="cache-hits">0</strong></span>
+              <span class="text-red-600">Miss: <strong class="cache-misses">0</strong></span>
+              <span>Taxa: <strong class="cache-hitrate">0%</strong></span>
+            </div>
+            <button type="button" onclick="clearServiceCache('tabular', this)" class="text-xs text-red-500 hover:text-red-700 font-medium">Limpar</button>
+          </div>
+        </div>
+        <div class="cache-card p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-700">Mamografia CNN</span>
+            <span class="cache-size text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 entradas</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-1.5 mb-2 overflow-hidden">
+            <div class="cache-bar bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-500 mb-2">
+            <span>Cache TTL: <strong class="cache-ttl">--</strong></span>
+            <span>Max: <strong class="cache-maxsize">--</strong></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex gap-3 text-xs">
+              <span class="text-green-600">Hits: <strong class="cache-hits">0</strong></span>
+              <span class="text-red-600">Miss: <strong class="cache-misses">0</strong></span>
+              <span>Taxa: <strong class="cache-hitrate">0%</strong></span>
+            </div>
+            <button type="button" onclick="clearServiceCache('image', this)" class="text-xs text-red-500 hover:text-red-700 font-medium">Limpar</button>
+          </div>
+        </div>
+        <div class="cache-card p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-700">Diabetes</span>
+            <span class="cache-size text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">0 entradas</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-1.5 mb-2 overflow-hidden">
+            <div class="cache-bar bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-500 mb-2">
+            <span>Cache TTL: <strong class="cache-ttl">--</strong></span>
+            <span>Max: <strong class="cache-maxsize">--</strong></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex gap-3 text-xs">
+              <span class="text-green-600">Hits: <strong class="cache-hits">0</strong></span>
+              <span class="text-red-600">Miss: <strong class="cache-misses">0</strong></span>
+              <span>Taxa: <strong class="cache-hitrate">0%</strong></span>
+            </div>
+            <button type="button" onclick="clearServiceCache('diabetes', this)" class="text-xs text-red-500 hover:text-red-700 font-medium">Limpar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </main>
+  <div id="resultModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+        <h3 id="modalTitle" class="text-lg font-bold text-slate-800"></h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+      </div>
+      <div id="modalContent" class="p-6"></div>
+    </div>
+  </div>
+
+
+  <script>
+    async function apiFetch(url, opts = {}) {
+      const r = await fetch(url, opts);
+      const text = await r.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+      return { ok: r.ok, status: r.status, data };
+    }
+
+    function showResult(id, html, onRender) {
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.innerHTML = '<div class="fade-in">' + html + '</div>';
+      if (typeof onRender === 'function') requestAnimationFrame(() => onRender());
+    }
+
+    function showPanel(panelId) {
+      document.querySelectorAll('.panel').forEach((panel) => panel.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+        btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+      });
+      const panel = document.getElementById(panelId);
+      if (panel) panel.classList.remove('hidden');
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find((btn) => btn.getAttribute('onclick')?.includes(panelId));
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow');
+      }
+    }
+
+    function showError(id, msg) {
+      let normalized = msg;
+      if (msg && typeof msg === 'object') {
+        if (Array.isArray(msg) && msg.length && msg[0].msg) normalized = msg[0].msg;
+        else if (msg.detail && Array.isArray(msg.detail) && msg.detail.length && msg.detail[0].msg) normalized = msg.detail[0].msg;
+        else normalized = JSON.stringify(msg);
+      }
+      showResult(id, '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 font-medium">Erro: ' + escapeHtml(normalized || 'Falha na requisição') + '</div>');
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+    }
+
+    function renderTable(rows, columns, title = '') {
+      if (!rows || !rows.length) return '';
+      const cols = columns || Object.keys(rows[0]);
+      const head = cols.map(c => '<th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 bg-slate-50/90">' + escapeHtml(c) + '</th>').join('');
+      const body = rows.map((r, idx) => '<tr class="' + (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40') + ' hover:bg-indigo-50/60 transition">' + cols.map(c => '<td class="px-4 py-3 text-sm text-slate-700 align-top">' + escapeHtml(r[c] !== undefined && r[c] !== null ? r[c] : '-') + '</td>').join('') + '</tr>').join('');
+      const titleHtml = title ? '<div class="mb-3 flex items-center justify-between"><p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">' + escapeHtml(title) + '</p><span class="text-[11px] text-slate-400">Ordenado por relevância</span></div>' : '';
+      return '<div class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm p-4">' + titleHtml + '<div class="overflow-x-auto"><table class="result-table min-w-full divide-y divide-slate-200"><thead><tr>' + head + '</tr></thead><tbody class="divide-y divide-slate-100">' + body + '</tbody></table></div></div>';
+    }
+
+    function renderMetricList(items) {
+      if (!items || !items.length) return '';
+      const cards = items.map(it => '<div class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"><div class="text-[11px] uppercase tracking-[0.2em] text-slate-400">' + escapeHtml(it.label) + '</div><div class="mt-2 text-lg font-bold text-slate-800">' + escapeHtml(it.value) + '</div></div>').join('');
+      return '<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">' + cards + '</div>';
+    }
+
+    function renderResultCard({ title, subtitle, badge, accent = 'indigo', metrics = [], chartId, chartLabels = [], chartValues = [], tableRows = [], tableColumns = [], tableTitle = '', imageSrc = '', imageAlt = '', footer = '', diagnosis = '' }) {
+      const accentClasses = {
+        rose: 'border-rose-200 bg-gradient-to-br from-rose-50 to-white',
+        emerald: 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-white',
+        indigo: 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-white',
+        amber: 'border-amber-200 bg-gradient-to-br from-amber-50 to-white',
+        purple: 'border-purple-200 bg-gradient-to-br from-purple-50 to-white',
+        blue: 'border-blue-200 bg-gradient-to-br from-blue-50 to-white'
+      };
+      const badgeClasses = {
+        rose: 'bg-rose-100 text-rose-700',
+        emerald: 'bg-emerald-100 text-emerald-700',
+        indigo: 'bg-indigo-100 text-indigo-700',
+        amber: 'bg-amber-100 text-amber-700',
+        purple: 'bg-purple-100 text-purple-700',
+        blue: 'bg-blue-100 text-blue-700'
+      };
+      const diagnosisHtml = diagnosis ? '<div class="mt-5 diagnosis-badge ' + diagnosis.class + '"><div style="font-size: 0.875rem; opacity: 0.8; margin-bottom: 0.5rem;">DIAGNÓSTICO</div><div style="font-size: 2.5rem; line-height: 1;">' + escapeHtml(diagnosis.text) + '</div></div>' : '';
+      const chartHtml = chartId && chartLabels.length && chartValues.length ? '<div class="mt-5 dashboard-chart"><div class="mb-3 flex items-center justify-between"><span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Análise de Probabilidades</span><span class="text-xs text-slate-400">Visualização comparativa</span></div><div class="h-96"><canvas id="' + chartId + '" class="w-full h-full"></canvas></div></div>' : '';
+      const imageHtml = imageSrc ? '<div class="mt-5 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"><div class="mb-3 flex items-center justify-between"><span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Explicabilidade SHAP</span><span class="text-xs text-slate-400">Importância das features</span></div><img src="' + imageSrc + '" alt="' + escapeHtml(imageAlt) + '" class="w-full rounded-xl" /></div>' : '';
+      const tableHtml = tableRows && tableRows.length ? renderTable(tableRows, tableColumns, tableTitle) : '';
+      return '<div class="rounded-3xl border p-5 shadow-lg ' + accentClasses[accent] + '"><div class="flex items-start justify-between gap-3"><div><div class="text-[11px] uppercase tracking-[0.2em] text-slate-400">' + escapeHtml(title) + '</div><div class="mt-1 text-xl font-semibold text-slate-800">' + escapeHtml(subtitle) + '</div></div><span class="rounded-full px-3 py-1 text-xs font-medium ' + badgeClasses[accent] + '">' + escapeHtml(badge) + '</span></div>' + diagnosisHtml + renderMetricList(metrics) + chartHtml + imageHtml + tableHtml + (footer ? '<div class="mt-5 text-sm text-slate-600">' + footer + '</div>' : '') + '</div>';
+    }
+
+    function renderBarChart(canvasId, labels, values, colors) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || typeof Chart === 'undefined') return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      if (canvas.chartInstance) canvas.chartInstance.destroy();
+      const backgroundColors = values.map((v, i) => {
+        const color = colors[i] || '#6366f1';
+        const opacity = 0.7 + Math.min(v, 0.3);
+        const rgb = color.replace('#', '');
+        const r = parseInt(rgb.substr(0, 2), 16);
+        const g = parseInt(rgb.substr(2, 2), 16);
+        const b = parseInt(rgb.substr(4, 2), 16);
+        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      });
+      canvas.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Probabilidade',
+            data: values,
+            backgroundColor: backgroundColors,
+            borderColor: colors,
+            borderWidth: 2.5,
+            borderRadius: 12,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { callback: (value) => (value * 100).toFixed(0) + '%' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function renderHeatmap(values, containerId) {
+      const container = document.getElementById(containerId);
+      if (!container || !values || !values.length) return;
+      const size = values[0].length;
+      const rows = values.map(row => row.map(v => {
+        const normalized = Math.max(0, Math.min(1, Number(v) || 0));
+        const color = `rgba(99, 102, 241, ${0.2 + normalized * 0.75})`;
+        return '<div class="h-3 w-3 rounded-sm" style="background:' + color + '"></div>';
+      }).join('')).join('');
+      container.innerHTML = '<div class="mt-3" style="display:grid; grid-template-columns: repeat(' + size + ', minmax(0, 1fr)); gap:4px;">' + rows + '</div>';
+    }
+
+    async function checkHealth() {
+      try {
+        const { ok, data } = await apiFetch('/health');
+        const badge = document.getElementById('statusBadge');
+        if (ok && data.status === 'ok') {
+          const flags = [data.tabular_model_loaded, data.cnn_model_loaded, data.diabetes_model_loaded, data.pcos_model_loaded];
+          const icons = flags.map(f => f ? 'OK' : 'XX');
+          badge.className = 'px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium';
+          badge.innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-1"></span>Online T:' + icons[0] + ' C:' + icons[1] + ' D:' + icons[2] + ' S:' + icons[3];
+        }
+      } catch (e) {
+        document.getElementById('statusBadge').innerHTML = 'Offline';
+      }
+    }
+
+    async function loadCacheStats() {
+      try {
+        const { ok, data } = await apiFetch('/admin/cache');
+        if (!ok) return;
+        document.getElementById('cacheLastUpdate').textContent = new Date().toLocaleTimeString('pt-BR');
+        const globalRate = data.global_hit_rate || 0;
+        document.getElementById('globalHitRateText').textContent = (globalRate * 100).toFixed(1) + '%';
+        document.getElementById('globalHitRateBar').style.width = (globalRate * 100) + '%';
+        document.getElementById('totalEntries').textContent = data.total_entries;
+        let totalReqs = 0;
+        const serviceKeys = ['tabular', 'image', 'diabetes'];
+        const cards = document.querySelectorAll('.cache-card');
+        serviceKeys.forEach((key, idx) => {
+          const svc = data.services[key];
+          if (!svc || !cards[idx]) return;
+          const stats = svc.stats;
+          const card = cards[idx];
+          card.querySelector('.cache-size').textContent = stats.current_size + '/' + stats.maxsize + ' entradas';
+          const hitRate = stats.total_requests > 0 ? (stats.hits / stats.total_requests) : 0;
+          card.querySelector('.cache-bar').style.width = (hitRate * 100) + '%';
+          card.querySelector('.cache-ttl').textContent = stats.ttl_seconds + 's';
+          card.querySelector('.cache-maxsize').textContent = stats.maxsize;
+          card.querySelector('.cache-hits').textContent = stats.hits;
+          card.querySelector('.cache-misses').textContent = stats.misses;
+          card.querySelector('.cache-hitrate').textContent = (hitRate * 100).toFixed(1) + '%';
+          totalReqs += stats.total_requests;
+        });
+        document.getElementById('totalRequests').textContent = totalReqs;
+      } catch (e) {
+        console.error('Cache stats error:', e);
+      }
+    }
+
+    async function clearAllCaches(btn) {
+      if (!confirm('Limpar todos os caches de predição?')) return;
+      btn.disabled = true; btn.textContent = 'Limpando...';
+      try {
+        const { ok } = await apiFetch('/admin/cache', { method: 'DELETE' });
+        if (ok) loadCacheStats();
+      } catch (e) {
+        console.error('Clear error:', e);
+      }
+      btn.disabled = false; btn.innerHTML = 'Limpar Tudo';
+    }
+
+    async function clearServiceCache(service, btn) {
+      if (!confirm('Limpar cache de ' + service + '?')) return;
+      btn.disabled = true; btn.textContent = '...';
+      try {
+        const { ok } = await apiFetch('/admin/cache/' + service, { method: 'DELETE' });
+        if (ok) loadCacheStats();
+      } catch (e) {
+        console.error('Clear error:', e);
+      }
+      btn.disabled = false; btn.innerHTML = 'Limpar';
+    }
+
+    const CANCER_FEATURES_FALLBACK = [17.99,10.38,122.8,1001.0,0.1184,0.2776,0.3001,0.1471,0.2419,0.07871,1.095,0.9053,8.589,153.4,0.006399,0.04904,0.05373,0.01587,0.03003,0.006193,25.38,17.33,184.6,2019.0,0.1622,0.6656,0.7119,0.2654,0.4601,0.1189];
+    let CANCER_FEATURES = CANCER_FEATURES_FALLBACK.slice();
+    let CANCER_FEATURE_NAMES = [];
+    let CANCER_SAMPLES = {};
+    let CANCER_SAMPLE_LABEL = 'Amostra local da base';
+    let CANCER_SAMPLE_SOURCE = 'data/breast_cancer_wisconsin.csv';
+    let CANCER_SAMPLE_KIND = 'benign';
+    let cancerSamplePromise = null;
+
+    function renderCancerSamplePreview(sample, featureNames) {
+      if (!sample || !Array.isArray(sample.features)) return '';
+      const names = Array.isArray(featureNames) && featureNames.length ? featureNames : sample.features.map((_, idx) => 'feature_' + (idx + 1));
+      const rows = names.map((name, index) => ({
+        feature: name,
+        valor: sample.features[index] !== undefined && sample.features[index] !== null ? sample.features[index] : '-'
+      }));
+      return renderTable(rows, ['feature', 'valor'], 'Valores da amostra');
+    }
+
+    function applyCancerSampleSelection(kind) {
+      const sample = CANCER_SAMPLES && CANCER_SAMPLES[kind] ? CANCER_SAMPLES[kind] : null;
+      if (!sample) return;
+      CANCER_FEATURES = sample.features.map((value) => Number(value));
+      CANCER_SAMPLE_KIND = kind;
+      CANCER_SAMPLE_LABEL = kind === 'malignant' ? 'Amostra maligna da base' : 'Amostra benigna da base';
+      const diagnosis = sample.diagnosis === 'M' ? 'Maligna (M)' : 'Benigna (B)';
+      const info = document.getElementById('cancerSampleInfo');
+      const source = document.getElementById('cancerSampleSource');
+      const preview = document.getElementById('cancerSamplePreview');
+      const kindSelect = document.getElementById('cancerSampleKind');
+      if (kindSelect && kindSelect.value !== kind) kindSelect.value = kind;
+      if (info) info.textContent = CANCER_SAMPLE_LABEL + ' · Diagnóstico real: ' + diagnosis;
+      if (source) source.textContent = 'Fonte: ' + CANCER_SAMPLE_SOURCE;
+      if (preview) preview.innerHTML = renderCancerSamplePreview(sample, CANCER_FEATURE_NAMES);
+    }
+
+    async function loadCancerSampleFromBase() {
+      const { ok, data } = await apiFetch('/predict/cancer/samples');
+      if (!ok || !data || !data.samples) {
+        throw new Error('Não foi possível carregar amostras da base.');
+      }
+      CANCER_SAMPLES = data.samples;
+      CANCER_FEATURE_NAMES = Array.isArray(data.feature_names) ? data.feature_names : [];
+      CANCER_SAMPLE_SOURCE = data.source || CANCER_SAMPLE_SOURCE;
+      const preferred = data.default_sample && data.samples[data.default_sample] ? data.default_sample : 'benign';
+      applyCancerSampleSelection(preferred);
+      return CANCER_FEATURES;
+    }
+
+    async function ensureCancerFeaturesLoaded() {
+      if (CANCER_FEATURES && CANCER_FEATURES.length === 30 && CANCER_SAMPLE_LABEL !== 'Amostra local da base') {
+        return CANCER_FEATURES;
+      }
+      if (!cancerSamplePromise) {
+        cancerSamplePromise = loadCancerSampleFromBase().catch((error) => {
+          console.warn('Falha ao carregar amostras da base, usando fallback local.', error);
+          CANCER_FEATURES = CANCER_FEATURES_FALLBACK.slice();
+          CANCER_SAMPLE_LABEL = 'Fallback local da base';
+          CANCER_SAMPLE_SOURCE = 'Fallback local';
+          return CANCER_FEATURES;
+        }).finally(() => {
+          cancerSamplePromise = null;
+        });
+      }
+      return cancerSamplePromise;
+    }
+
+    async function predictTabular(el) {
+      const btn = el || event.target;
+      btn.disabled = true; btn.innerHTML = '<div class="spinner mx-auto"></div>';
+      try {
+        await ensureCancerFeaturesLoaded();
+        const { ok, data } = await apiFetch('/predict/tabular/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: CANCER_FEATURES, model_name: document.getElementById('tabularModel').value }) });
+        if (ok) {
+          const isM = data.diagnosis === 'M';
+          const metrics = [
+            { label: 'Maligno', value: (data.probability_malignant * 100).toFixed(1) + '%' },
+            { label: 'Benigno', value: (data.probability_benign * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used || 'N/A' },
+            { label: 'Confiança', value: (Math.max(data.probability_malignant, data.probability_benign) * 100).toFixed(1) + '%' }
+          ];
+          const tableRows = data.shap_top_features ? Object.entries(data.shap_top_features).map(([feature, value]) => ({ feature, valor: (Number(value) * 100).toFixed(1) + '%' })) : [];
+          const diagnosis = { text: isM ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isM ? 'diagnosis-malignant' : 'diagnosis-benign' };
+          const html = renderResultCard({ title: 'Câncer de Mama', subtitle: 'Predição tabular com explicabilidade', badge: data.model_used || 'Modelo', accent: isM ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'tabularChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0], tableRows, tableColumns: ['feature', 'valor'], tableTitle: 'Top features SHAP' });
+          showResult('tabularResult', html, () => renderBarChart('tabularChart', ['Maligno', 'Benigno'], [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0], ['#ef4444', '#10b981']));
+        } else {
+          showError('tabularResult', data.detail || JSON.stringify(data));
+        }
+      } catch (e) {
+        showError('tabularResult', 'Conexão indisponível');
+      }
+      btn.disabled = false; btn.textContent = 'Classificar';
+    }
+
+    async function predictMammo() {
+      const file = document.getElementById('mammoFile').files[0];
+      if (!file) return alert('Selecione uma imagem.');
+      showResult('mammoResult', '<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Processando imagem...</div>');
+      const form = new FormData(); form.append('file', file);
+      try {
+        const { ok, data } = await apiFetch('/predict/image/mammography', { method: 'POST', body: form });
+        if (ok) {
+          const isMal = data.prediction === 'malignant';
+          const metrics = [
+            { label: 'Confiança', value: (data.confidence * 100).toFixed(1) + '%' },
+            { label: 'Maligno', value: (data.probability_malignant * 100).toFixed(1) + '%' },
+            { label: 'Benigno', value: (Math.max(0, 1 - (Number(data.probability_malignant) || 0)) * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used || 'N/A' }
+          ];
+          const diagnosis = { text: isMal ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isMal ? 'diagnosis-malignant' : 'diagnosis-benign' };
+          const html = renderResultCard({ title: 'Mamografia', subtitle: 'Classificação de imagem', badge: data.model_used || 'Modelo', accent: isMal ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'mammoChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [Number(data.probability_malignant) || 0, Math.max(0, 1 - (Number(data.probability_malignant) || 0))] });
+          showResult('mammoResult', html, () => renderBarChart('mammoChart', ['Maligno', 'Benigno'], [Number(data.probability_malignant) || 0, Math.max(0, 1 - (Number(data.probability_malignant) || 0))], ['#ef4444', '#10b981']));
+        } else {
+          showError('mammoResult', data.detail || 'Erro ao processar imagem');
+        }
+      } catch (e) {
+        showError('mammoResult', 'Conexão indisponível');
+      }
+    }
+
+    async function predictMammoGradCAM() {
+      const file = document.getElementById('mammoFile').files[0];
+      if (!file) return alert('Selecione uma imagem.');
+      showResult('mammoResult', '<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Gerando Grad-CAM...</div>');
+      const form = new FormData(); form.append('file', file);
+      try {
+        const { ok, data } = await apiFetch('/predict/image/mammography/gradcam', { method: 'POST', body: form });
+        if (ok) {
+          const isMal = data.prediction === 'malignant';
+          const metrics = [
+            { label: 'Confiança', value: (data.confidence * 100).toFixed(1) + '%' },
+            { label: 'Maligno', value: (data.confidence * 100).toFixed(1) + '%' },
+            { label: 'Benigno', value: (Math.max(0, 1 - data.confidence) * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used || 'N/A' }
+          ];
+          const diagnosis = { text: isMal ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isMal ? 'diagnosis-malignant' : 'diagnosis-benign' };
+          const html = renderResultCard({ title: 'Explicabilidade - Grad-CAM', subtitle: 'Mapa de ativação de gradientes', badge: data.model_used || 'Modelo', accent: isMal ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'gradcamChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [Number(data.confidence) || 0, Math.max(0, 1 - Number(data.confidence) || 0)] });
+          showResult('mammoResult', html + '<div id="gradcamPanel"></div>', () => { renderBarChart('gradcamChart', ['Maligno', 'Benigno'], [Number(data.confidence) || 0, Math.max(0, 1 - Number(data.confidence) || 0)], ['#ef4444', '#10b981']); renderHeatmap(data.heatmap || [], 'gradcamPanel'); });
+        } else {
+          showError('mammoResult', data.detail || 'Erro ao gerar Grad-CAM');
+        }
+      } catch (e) {
+        showError('mammoResult', 'Conexão indisponível');
+      }
+    }
+
+    // ===== HELPERS DE MAMOGRAFIA (dropdown de amostras + galeria) =====
+    let MAMMO_SAMPLES = {};
+
+        async function loadMammoSamples() {
+          const select = document.getElementById('mammoSample');
+          const { ok, data } = await apiFetch('/predict/image/samples');
+          if (!ok || !data.samples || !data.samples.length) {
+            select.innerHTML = '<option>Prepare o conjunto de teste primeiro</option>';
+            renderMammoGallery();
+            return;
+          }
+          // Dropdown clássico: apenas imagens de teste; galeria: todas (com split)
+          const testSamples = data.samples.filter(sample => !sample.split || sample.split === 'test');
+          MAMMO_SAMPLES = Object.fromEntries(testSamples.map(sample => [sample.id, sample]));
+          select.innerHTML = testSamples.map(sample => '<option value="' + escapeHtml(sample.id) + '">' + escapeHtml(sample.label === 'malignant' ? 'Maligna' : 'Benigna') + ' — ' + escapeHtml(sample.id) + '</option>').join('');
+          showMammoSample(select.value);
+          MAMMO_ALL_SAMPLES = data.samples || [];
+          renderMammoGallery();
+        }
+
+        // ===== GALERIA DE MAMOGRAFIAS (5 por linha x 3 linhas = 15 por página) =====
+        let MAMMO_ALL_SAMPLES = [];
+        let MAMMO_GALLERY_PAGE = 1;
+        const MAMMO_GALLERY_PER_PAGE = 15;
+
+        function mammoGalleryFiltered() {
+          const split = document.getElementById('mammoGallerySplit').value;
+          if (split === 'all') return MAMMO_ALL_SAMPLES;
+          return MAMMO_ALL_SAMPLES.filter(sample => sample.split === split);
+        }
+
+        function renderMammoGallery() {
+          const gallery = document.getElementById('mammoGallery');
+          if (!gallery) return;
+          const filtered = mammoGalleryFiltered();
+          const totalPages = Math.max(1, Math.ceil(filtered.length / MAMMO_GALLERY_PER_PAGE));
+          MAMMO_GALLERY_PAGE = Math.min(totalPages, Math.max(1, MAMMO_GALLERY_PAGE));
+          const start = (MAMMO_GALLERY_PAGE - 1) * MAMMO_GALLERY_PER_PAGE;
+          const pageItems = filtered.slice(start, start + MAMMO_GALLERY_PER_PAGE);
+          gallery.innerHTML = pageItems.map(sample => {
+            const isMal = sample.label === 'malignant';
+            return '<div class="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-400 hover:shadow-lg transition" onclick="predictMammoGallerySample(\'' + escapeHtml(sample.id) + '\', this)" title="Clique para classificar">' +
+              '<img src="' + sample.image_url + '" alt="Mamografia ' + (isMal ? 'maligna' : 'benigna') + '" loading="lazy" class="w-full aspect-square object-cover transition group-hover:scale-105">' +
+              '<span class="absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ' + (isMal ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700') + '">' + (isMal ? 'Maligna' : 'Benigna') + '</span>' +
+              '<span class="absolute bottom-1.5 left-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/50 text-white">' + escapeHtml(sample.split) + '</span>' +
+              '</div>';
+          }).join('') || '<p class="col-span-full text-sm text-slate-500 text-center py-8">Nenhuma imagem neste split.</p>';
+          document.getElementById('mammoGalleryPageInfo').textContent = 'Página ' + MAMMO_GALLERY_PAGE + ' de ' + totalPages;
+        }
+
+        function mammoGalleryPage(delta) {
+          const totalPages = Math.max(1, Math.ceil(mammoGalleryFiltered().length / MAMMO_GALLERY_PER_PAGE));
+          MAMMO_GALLERY_PAGE = Math.min(totalPages, Math.max(1, MAMMO_GALLERY_PAGE + delta));
+          renderMammoGallery();
+        }
+
+        async function predictMammoGallerySample(sampleId, el) {
+          const original = el.innerHTML;
+          el.innerHTML = '<div class="w-full aspect-square flex items-center justify-center"><div class="spinner"></div></div>';
+          try {
+            const { ok, data } = await apiFetch('/predict/image/mammography/sample/' + encodeURIComponent(sampleId), { method: 'POST' });
+            if (!ok) { showError('mammoResult', data.detail || 'Predição indisponível'); el.innerHTML = original; return; }
+            const isMalignant = data.prediction === 'malignant';
+            // Restaura a miniatura e marca o resultado nela mesma (evita spinner travado)
+            el.innerHTML = original;
+            el.classList.remove('ring-2', 'ring-red-400', 'ring-emerald-400');
+            el.querySelectorAll('.gallery-result-badge').forEach((b) => b.remove());
+            const resultBadge = document.createElement('span');
+            resultBadge.className = 'gallery-result-badge absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ' + (isMalignant ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white');
+            resultBadge.textContent = isMalignant ? 'MALIGNO' : 'BENIGNO';
+            el.appendChild(resultBadge);
+            el.classList.add('ring-2', isMalignant ? 'ring-red-400' : 'ring-emerald-400');
+            const metrics = [{ label: 'Confiança', value: (data.confidence * 100).toFixed(1) + '%' }, { label: 'Maligno', value: (data.probability_malignant * 100).toFixed(1) + '%' }, { label: 'Benigno', value: (data.probability_benign * 100).toFixed(1) + '%' }, { label: 'Modelo', value: data.model_used }];
+            const diagnosis = { text: isMalignant ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isMalignant ? 'diagnosis-malignant' : 'diagnosis-benign' };
+            const html = renderResultCard({ title: 'Mamografia da Galeria', subtitle: 'Classificação pela CNN (MobileNetV2)', badge: 'Amostra local', accent: isMalignant ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'mammoGalleryChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0] });
+            showResult('mammoResult', html, () => renderBarChart('mammoGalleryChart', ['Maligno', 'Benigno'], [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0], ['#ef4444', '#10b981']));
+            // Garante que o usuário veja o resultado (a área de resultado fica acima da galeria)
+            const resultEl = document.getElementById('mammoResult');
+            if (resultEl) resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } catch (e) {
+            showError('mammoResult', 'Conexão indisponível');
+            el.innerHTML = original;
+          }
+        }
+
+        async function loadMammoEDA(button) {
+          button.disabled = true; button.textContent = 'Carregando...';
+          try {
+            const { ok, data } = await apiFetch('/predict/image/eda');
+            if (!ok) { showError('mammoResult', data.detail || 'EDA indisponível'); return; }
+            const rows = (data.tables && data.tables.distribuicao) || [];
+            const dims = (data.tables && data.tables.dimensoes) || [];
+            const metrics = dims.map(d => ({ label: d.classe === 'malignant' ? 'Maligna (px)' : 'Benigna (px)', value: d.largura_min + '×' + d.altura_min + ' a ' + d.largura_max + '×' + d.altura_max }));
+            const html = renderResultCard({ title: 'Mamografias — EDA', subtitle: 'Distribuição CBIS-DDSM por split e classe', badge: 'EDA', accent: 'blue', metrics, tableRows: rows, tableColumns: ['split', 'classe', 'contagem'], tableTitle: 'Imagens por split e classe', imageSrc: (data.graphs && data.graphs.distribuicao) || '', imageAlt: 'Distribuição de mamografias' });
+            showResult('mammoResult', html);
+          } catch (e) {
+            showError('mammoResult', 'Conexão indisponível');
+          }
+          button.disabled = false; button.textContent = 'Ver EDA';
+        }
+
+        async function loadMammoMetrics(button) {
+          button.disabled = true; button.textContent = 'Carregando...';
+          try {
+            const { ok, data } = await apiFetch('/predict/image/metrics');
+            if (!ok) { showError('mammoResult', data.detail || 'Métricas indisponíveis'); return; }
+            const rows = (data.tables && data.tables.metricas) || [];
+            const html = renderResultCard({ title: 'Mamografia — Métricas', subtitle: 'Avaliação de teste do checkpoint (MobileNetV2)', badge: 'Avaliação', accent: 'indigo', metrics: [{ label: 'Arquitetura', value: 'MobileNetV2' }, { label: 'Métricas', value: rows.length }], tableRows: rows, tableColumns: ['metrica', 'valor'], tableTitle: 'Métricas (%)', imageSrc: (data.graphs && data.graphs.comparativo) || '', imageAlt: 'Métricas de teste' });
+            showResult('mammoResult', html);
+          } catch (e) {
+            showError('mammoResult', 'Conexão indisponível');
+          }
+          button.disabled = false; button.textContent = 'Métricas';
+        }
+
+        function showMammoSample(sampleId) {
+          const sample = MAMMO_SAMPLES[sampleId];
+          const image = document.getElementById('mammoSamplePreview');
+          if (!sample) { image.classList.add('hidden'); return; }
+          image.src = sample.image_url;
+          image.classList.remove('hidden');
+        }
+
+        async function predictLocalMammo(button) {
+          const sampleId = document.getElementById('mammoSample').value;
+          if (!MAMMO_SAMPLES[sampleId]) { showError('mammoResult', 'Selecione uma imagem local válida.'); return; }
+          button.disabled = true; button.innerHTML = '<div class="spinner mx-auto"></div>';
+          try {
+            const { ok, data } = await apiFetch('/predict/image/mammography/sample/' + encodeURIComponent(sampleId), { method: 'POST' });
+            if (!ok) { showError('mammoResult', data.detail || 'Predição indisponível'); return; }
+            const isMalignant = data.prediction === 'malignant';
+            const metrics = [{ label: 'Confiança', value: (data.confidence * 100).toFixed(1) + '%' }, { label: 'Maligno', value: (data.probability_malignant * 100).toFixed(1) + '%' }, { label: 'Benigno', value: (data.probability_benign * 100).toFixed(1) + '%' }, { label: 'Modelo', value: data.model_used }];
+            const diagnosis = { text: isMalignant ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isMalignant ? 'diagnosis-malignant' : 'diagnosis-benign' };
+            const html = renderResultCard({ title: 'Mamografia local', subtitle: 'Imagem CBIS-DDSM selecionada', badge: data.model_used, accent: isMalignant ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'localMammoChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [data.probability_malignant, data.probability_benign] });
+            showResult('mammoResult', html, () => renderBarChart('localMammoChart', ['Maligno', 'Benigno'], [data.probability_malignant, data.probability_benign], ['#ef4444', '#10b981']));
+          } catch (error) { showError('mammoResult', 'Conexão indisponível'); }
+          finally { button.disabled = false; button.textContent = 'Classificar imagem local'; }
+        }
+
+    async function predictCancer(btn) {
+      btn.disabled = true; btn.innerHTML = '<div class="spinner mx-auto"></div>';
+      try {
+        await ensureCancerFeaturesLoaded();
+        const { ok, data } = await apiFetch('/predict/cancer/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: CANCER_FEATURES, model_name: document.getElementById('cancerModel').value }) });
+        if (ok) {
+          const isM = data.diagnosis === 'M';
+          const metrics = [
+            { label: 'Maligno', value: (data.probability_malignant * 100).toFixed(1) + '%' },
+            { label: 'Benigno', value: (data.probability_benign * 100).toFixed(1) + '%' },
+            { label: 'Confiança', value: (Math.max(data.probability_malignant, data.probability_benign) * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used || 'N/A' }
+          ];
+          const topFeatures = data.tables && data.tables.top_features ? data.tables.top_features : [];
+          const tableRows = topFeatures.map(item => ({ feature: item.feature || item[0], importancia: item.importancia !== undefined ? (Number(item.importancia) * 100).toFixed(1) + '%' : item[1] }));
+          const diagnosis = { text: isM ? '⚠️ MALIGNO' : '✓ BENIGNO', class: isM ? 'diagnosis-malignant' : 'diagnosis-benign' };
+          const html = renderResultCard({ title: 'Câncer de Mama', subtitle: 'Predição com SHAP e análise de features', badge: data.model_used || 'Modelo', accent: isM ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'cancerChart', chartLabels: ['Maligno', 'Benigno'], chartValues: [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0], tableRows, tableColumns: ['feature', 'importancia'], tableTitle: 'Importância das Features', imageSrc: data.graphs && data.graphs.shap ? data.graphs.shap : '', imageAlt: 'SHAP' });
+          showResult('cancerResult', html, () => renderBarChart('cancerChart', ['Maligno', 'Benigno'], [Number(data.probability_malignant) || 0, Number(data.probability_benign) || 0], ['#ef4444', '#10b981']));
+        } else {
+          showError('cancerResult', data.detail || JSON.stringify(data));
+        }
+      } catch (e) {
+        showError('cancerResult', 'Conexão indisponível');
+      }
+      btn.disabled = false; btn.textContent = 'Classificar';
+    }
+
+    async function loadCancerEDA(btn) {
+      btn.disabled = true; btn.innerHTML = '<div class="spinner mx-auto"></div>';
+      try {
+        const { ok, data } = await apiFetch('/predict/cancer/eda');
+        if (ok) {
+          const tableRows = data.tables && data.tables.classes ? data.tables.classes : [];
+          const images = [];
+          if (data.graphs && data.graphs.classes) images.push('<img src="' + data.graphs.classes + '" class="w-full rounded-xl border border-slate-200" />');
+          if (data.graphs && data.graphs.boxplots) images.push('<img src="' + data.graphs.boxplots + '" class="w-full rounded-xl border border-slate-200 mt-3" />');
+          const html = renderResultCard({ title: 'EDA', subtitle: data.info && data.info.name ? data.info.name : 'Breast Cancer Wisconsin', badge: 'Exploração', accent: 'purple', metrics: [{ label: 'Amostras', value: data.info && data.info.samples ? data.info.samples : 'N/A' }, { label: 'Features', value: data.info && data.info.features ? data.info.features : 'N/A' }], tableRows, tableColumns: ['label', 'count'], tableTitle: 'Distribuição das classes', footer: images.length ? '<div class="space-y-3">' + images.join('') + '</div>' : '' });
+          showResult('cancerResult', html);
+        } else {
+          showError('cancerResult', data.detail || 'Erro');
+        }
+      } catch (e) {
+        showError('cancerResult', 'Conexão indisponível');
+      }
+      btn.disabled = false; btn.textContent = 'Ver EDA';
+    }
+
+    async function loadCancerMetrics(btn) {
+      btn.disabled = true; btn.innerHTML = '<div class="spinner mx-auto"></div>';
+      try {
+        const { ok, data } = await apiFetch('/predict/cancer/metrics');
+        if (ok) {
+          const metricRows = data.tables && data.tables.metricas ? data.tables.metricas : [];
+          const html = renderResultCard({ title: 'Comparativo', subtitle: 'Métricas dos modelos', badge: 'Modelos', accent: 'amber', metrics: [{ label: 'Modelos', value: metricRows.length }], tableRows: metricRows, tableColumns: ['modelo', 'acuracia', 'recall', 'precision', 'f1', 'auc'], tableTitle: 'Métricas (%)', imageSrc: data.graphs && data.graphs.comparativo ? data.graphs.comparativo : '', imageAlt: 'Comparativo de modelos' });
+          showResult('cancerResult', html);
+        } else {
+          showError('cancerResult', data.detail || 'Erro');
+        }
+      } catch (e) {
+        showError('cancerResult', 'Conexão indisponível');
+      }
+      btn.disabled = false; btn.textContent = 'Comparativo de modelos';
+    }
+
+    function fillDiabetes() {
+      ['dPreg', 'dGlic', 'dPress', 'dSkin', 'dInsul', 'dBmi', 'dPedig', 'dAge'].forEach((id, index) => {
+        document.getElementById(id).value = ['6', '148', '72', '35', '0', '33.6', '0.627', '50'][index];
+      });
+    }
+
+    async function predictDiabetes(el) {
+      const btn = el || event.target;
+      btn.disabled = true; btn.innerHTML = '<div class="spinner mx-auto"></div>';
+      const ids = ['dPreg', 'dGlic', 'dPress', 'dSkin', 'dInsul', 'dBmi', 'dPedig', 'dAge'];
+      const features = ids.map(id => parseFloat(document.getElementById(id).value) || 0);
+      try {
+        const { ok, data } = await apiFetch('/predict/diabetes/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features, model_name: document.getElementById('diabetesModel').value }) });
+        if (ok) {
+          const isPos = data.prediction === 'Positive';
+          const metrics = [
+            { label: 'Risco', value: (data.probability_positive * 100).toFixed(1) + '%' },
+            { label: 'Sem risco', value: (data.probability_negative * 100).toFixed(1) + '%' },
+            { label: 'Confiança', value: (Math.max(data.probability_positive, data.probability_negative) * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used || 'N/A' }
+          ];
+          const featureRows = ids.map((id, index) => ({ feature: id, valor: features[index] }));
+          const diagnosis = { text: isPos ? '⚠️ COM RISCO' : '✓ SEM RISCO', class: isPos ? 'diagnosis-positive' : 'diagnosis-negative' };
+          const html = renderResultCard({ title: 'Diabetes', subtitle: 'Análise de risco - Predição e probabilidades', badge: data.model_used || 'Modelo', accent: isPos ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'diabetesChart', chartLabels: ['Com risco', 'Sem risco'], chartValues: [Number(data.probability_positive) || 0, Number(data.probability_negative) || 0], tableRows: featureRows, tableColumns: ['feature', 'valor'], tableTitle: 'Parâmetros de entrada' });
+          showResult('diabetesResult', html, () => renderBarChart('diabetesChart', ['Com risco', 'Sem risco'], [Number(data.probability_positive) || 0, Number(data.probability_negative) || 0], ['#ef4444', '#10b981']));
+        } else {
+          showError('diabetesResult', data.detail || JSON.stringify(data));
+        }
+      } catch (e) {
+        showError('diabetesResult', 'Conexão indisponível');
+      }
+      btn.disabled = false; btn.textContent = 'Predizer';
+    }
+
+    let PCOS_SAMPLES = {};
+    let PCOS_FEATURES = [];
+    let PCOS_FEATURE_NAMES = [];
+
+    function selectPcosSample(kind) {
+      const sample = PCOS_SAMPLES[kind];
+      if (!sample) return;
+      PCOS_FEATURES = sample.features.map(Number);
+      document.getElementById('pcosSampleInfo').textContent =
+        (sample.label === 'PCOS' ? 'Amostra clínica com SOP' : 'Amostra clínica sem SOP') +
+        ' carregada (' + PCOS_FEATURES.length + ' medidas).';
+    }
+
+    async function loadPcosSamples() {
+      const { ok, data } = await apiFetch('/predict/pcos/samples');
+      if (!ok) {
+        document.getElementById('pcosSampleInfo').textContent = 'Não foi possível carregar as amostras do dataset.';
+        return;
+      }
+      PCOS_SAMPLES = data.samples || {};
+      PCOS_FEATURE_NAMES = data.feature_names || [];
+      selectPcosSample(document.getElementById('pcosSampleKind').value);
+    }
+
+    async function predictPcos(button) {
+      if (!PCOS_FEATURES.length) await loadPcosSamples();
+      if (PCOS_FEATURES.length !== 41) {
+        showError('pcosResult', 'A amostra de SOP não contém as 41 medidas necessárias.');
+        return;
+      }
+      button.disabled = true; button.innerHTML = '<div class="spinner mx-auto"></div>';
+      try {
+        const { ok, data } = await apiFetch('/predict/pcos/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ features: PCOS_FEATURES, model_name: document.getElementById('pcosModel').value })
+        });
+        if (ok) {
+          const hasPcos = data.prediction === 'PCOS';
+          const metrics = [
+            { label: 'Com SOP', value: (data.probability_positive * 100).toFixed(1) + '%' },
+            { label: 'Sem SOP', value: (data.probability_negative * 100).toFixed(1) + '%' },
+            { label: 'Confiança', value: (Math.max(data.probability_positive, data.probability_negative) * 100).toFixed(1) + '%' },
+            { label: 'Modelo', value: data.model_used }
+          ];
+          const topFeatures = data.tables && data.tables.top_features ? data.tables.top_features : [];
+          const tableRows = topFeatures.length
+            ? topFeatures.map(item => ({ feature: item.feature, importancia: (Number(item.importancia) * 100).toFixed(1) + '%' }))
+            : PCOS_FEATURE_NAMES.map((feature, index) => ({ feature, valor: PCOS_FEATURES[index] }));
+          const diagnosis = { text: hasPcos ? '⚠️ COM SOP' : '✓ SEM SOP', class: hasPcos ? 'diagnosis-positive' : 'diagnosis-negative' };
+          const html = renderResultCard({ title: 'Síndrome dos Ovários Policísticos', subtitle: 'Classificação clínica de SOP', badge: data.model_used, accent: hasPcos ? 'rose' : 'emerald', metrics, diagnosis, chartId: 'pcosChart', chartLabels: ['Com SOP', 'Sem SOP'], chartValues: [data.probability_positive, data.probability_negative], tableRows, tableColumns: topFeatures.length ? ['feature', 'importancia'] : ['feature', 'valor'], tableTitle: topFeatures.length ? 'Variáveis clínicas relevantes' : 'Medidas clínicas da amostra', imageSrc: data.graphs && data.graphs.feature_importance ? data.graphs.feature_importance : '', imageAlt: 'Importância das variáveis clínicas' });
+          showResult('pcosResult', html, () => renderBarChart('pcosChart', ['Com SOP', 'Sem SOP'], [data.probability_positive, data.probability_negative], ['#ef4444', '#10b981']));
+        } else {
+          showError('pcosResult', data.detail || JSON.stringify(data));
+        }
+      } catch (error) {
+        showError('pcosResult', 'Conexão indisponível');
+      }
+      button.disabled = false; button.textContent = 'Classificar risco de SOP';
+    }
+
+    async function loadPcosEda(button) {
+      button.disabled = true;
+      try {
+        const { ok, data } = await apiFetch('/predict/pcos/eda');
+        if (ok) {
+          const classes = data.tables && data.tables.classes ? data.tables.classes : [];
+          const images = data.graphs && data.graphs.classes ? '<img src="' + data.graphs.classes + '" class="w-full rounded-xl border border-slate-200" />' : '';
+          showResult('pcosResult', renderResultCard({ title: 'EDA de SOP', subtitle: 'Dataset clínico de síndrome dos ovários policísticos', badge: 'Exploração', accent: 'purple', metrics: [{ label: 'Amostras', value: data.info.samples }, { label: 'Features', value: data.info.features }], tableRows: classes, tableColumns: ['classe', 'contagem', 'proporcao'], tableTitle: 'Distribuição das classes', footer: images }));
+        } else showError('pcosResult', data.detail || 'EDA indisponível');
+      } catch (error) { showError('pcosResult', 'Conexão indisponível'); }
+      button.disabled = false;
+    }
+
+    async function loadPcosMetrics(button) {
+      button.disabled = true;
+      try {
+        const { ok, data } = await apiFetch('/predict/pcos/metrics');
+        if (ok) {
+          const rows = data.tables && data.tables.metricas ? data.tables.metricas : [];
+          showResult('pcosResult', renderResultCard({ title: 'Modelos de SOP', subtitle: 'Métricas no conjunto de teste', badge: 'Avaliação', accent: 'amber', metrics: [{ label: 'Modelos', value: rows.length }], tableRows: rows, tableColumns: ['modelo', 'acuracia', 'recall', 'precisao', 'f1', 'auc'], tableTitle: 'Métricas (%)', imageSrc: data.graphs && data.graphs.comparativo ? data.graphs.comparativo : '', imageAlt: 'Comparativo de modelos' }));
+        } else showError('pcosResult', data.detail || 'Métricas indisponíveis');
+      } catch (error) { showError('pcosResult', 'Conexão indisponível'); }
+      button.disabled = false;
+    }
+
+    checkHealth();
+    setInterval(checkHealth, 15000);
+    showPanel("panel-cancer");
+    loadCancerSampleFromBase().catch(() => {});
+    loadPcosSamples().catch(() => {});
+    loadMammoSamples().catch(() => {});
+    loadCacheStats();
+    setInterval(loadCacheStats, 10000);
+  
+    // ===== MODAL FUNCTIONS =====
+    function openModal(title, content) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalContent').innerHTML = content;
+      document.getElementById('resultModal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('resultModal').classList.add('hidden');
+    }
+    window.addEventListener('click', (e) => {
+      if (e.target.id === 'resultModal') closeModal();
+    });
+
+    // ===== COMPARE MODELS FUNCTION =====
+    async function compareModelsTabular() {
+      await ensureCancerFeaturesLoaded();
+      const { ok: modelsOk, data: modelsData } = await apiFetch('/predict/tabular/models');
+      const models = modelsOk && modelsData.available_models ? modelsData.available_models : ['random_forest', 'logistic_regression', 'gradient_boosting', 'decision_tree', 'svm', 'knn', 'legacy_logistic_regression'];
+      let html = '<div class="space-y-4"><p class="text-xs text-slate-500">Amostra utilizada: <strong>' + CANCER_SAMPLE_LABEL + '</strong></p><p class="text-xs text-slate-400">Fonte: ' + escapeHtml(CANCER_SAMPLE_SOURCE) + '</p>';
+      for (const model of models) {
+        html += '<div class="border-l-4 border-indigo-500 pl-4 py-3"><h4 class="font-semibold text-slate-700 mb-2">' + model + '</h4>';
+        const { ok, data } = await apiFetch('/predict/tabular/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: CANCER_FEATURES, model_name: model }) });
+        if (ok) {
+          html += '<div class="text-sm text-slate-600">Diagnostico: <strong>' + (data.diagnosis === 'M' ? 'Maligno' : 'Benigno') + '</strong></div>';
+          html += '<div class="text-sm text-slate-600">Confianca: <strong>' + (data.probability_malignant * 100).toFixed(1) + '%</strong></div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+      openModal('Comparacao de Modelos - Cancer', html);
+    }
+</script>
+</body>
+</html>

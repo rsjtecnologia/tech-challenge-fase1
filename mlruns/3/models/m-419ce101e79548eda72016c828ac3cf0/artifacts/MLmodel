@@ -1,0 +1,23 @@
+artifact_path: file:C:/Users/ricoi/POSTECH/tech-challenge-fase1/mlruns/3/models/m-419ce101e79548eda72016c828ac3cf0/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.14.6
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-419ce101e79548eda72016c828ac3cf0
+model_size_bytes: 45948
+model_uuid: m-419ce101e79548eda72016c828ac3cf0
+prompts: null
+run_id: b629a1c9601b4061be78bdd60b8de47d
+utc_time_created: '2026-08-06 01:08:40.252379'
